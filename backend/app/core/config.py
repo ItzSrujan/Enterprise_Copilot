@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_device: str = "cpu"
     normalize_embeddings: bool = True
+    database_url: str
     
     model_config = SettingsConfigDict(
         env_file = ".env",
