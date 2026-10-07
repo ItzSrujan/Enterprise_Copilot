@@ -1,0 +1,27 @@
+[
+  {
+    "question": "What should support do when a payment fails?",
+    "answer": "Verify server-side status, provider response, and duplicate-payment risk before advising a retry.",
+    "category": "payments"
+  },
+  {
+    "question": "Should a customer retry a pending payment?",
+    "answer": "Not until gateway/provider reconciliation and duplicate-charge risk are checked.",
+    "category": "payments"
+  },
+  {
+    "question": "What identifier is useful for payment investigation?",
+    "answer": "payment_id, together with order_id where applicable.",
+    "category": "payments"
+  },
+  {
+    "question": "Can an order be cancelled after shipment?",
+    "answer": "Normally the return process is used after shipment handoff.",
+    "category": "orders"
+  },
+  {
+    "question": "Can support request a customer's password?",
+    "answer": "No. Passwords and security codes must never be requested.",
+    "category": "security"
+  }
+]

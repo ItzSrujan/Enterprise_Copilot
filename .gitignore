@@ -1,0 +1,180 @@
+# =========================================================
+# Environment & Secrets
+# =========================================================
+
+.env
+.env.*
+!.env.example
+
+# API keys / secrets
+*.pem
+*.key
+*.crt
+
+
+# =========================================================
+# Python
+# =========================================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Type checking / linting caches
+.mypy_cache/
+.pyre/
+.ruff_cache/
+
+
+# =========================================================
+# Jupyter
+# =========================================================
+
+.ipynb_checkpoints/
+
+
+# =========================================================
+# IDE / Editors
+# =========================================================
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+
+# =========================================================
+# Logs
+# =========================================================
+
+*.log
+logs/
+
+
+# =========================================================
+# Local databases / runtime files
+# =========================================================
+
+*.sqlite
+*.sqlite3
+*.db
+
+*.pid
+
+
+# =========================================================
+# ML / Model Files
+# =========================================================
+
+# Model weights
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+*.ckpt
+
+# Local model/cache directories
+models/
+checkpoints/
+hf_cache/
+huggingface_cache/
+
+
+# =========================================================
+# RAG / Vector DB Local Data
+# =========================================================
+
+# Local vector/index files
+*.faiss
+*.index
+
+# Local retrieval caches
+.cache/
+rag_cache/
+
+
+# =========================================================
+# Temporary / Generated Files
+# =========================================================
+
+tmp/
+temp/
+*.tmp
+
+*.bak
+*.swp
+
+# Generated reports
+reports/generated/
+
+
+# =========================================================
+# Node / Next.js Frontend
+# =========================================================
+
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+.turbo/
+
+
+# =========================================================
+# Docker
+# =========================================================
+
+docker-data/
+docker-volumes/
+
+
+# =========================================================
+# Generated evaluation / experiment artifacts
+# =========================================================
+
+evaluation_results/
+experiment_results/
+
+*.jsonl
+
+
+# =========================================================
+# System / Misc
+# =========================================================
+
+*.DS_Store

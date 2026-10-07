@@ -1,0 +1,63 @@
+# LangChain
+langchain
+langchain-community
+langchain-core
+langchain-text-splitters
+langchain-huggingface
+langchain-chroma
+
+# Hugging Face
+transformers
+sentence-transformers
+accelerate
+
+# Vector databases
+chromadb
+pgvector
+
+# Documents
+pypdf
+python-docx
+unstructured
+pandas
+openpyxl
+
+# Backend
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Database
+sqlalchemy
+alembic
+psycopg[binary]
+
+# Cache
+redis
+
+# Authentication
+pyjwt
+passlib
+bcrypt
+
+# Configuration
+python-dotenv
+
+# Retrieval
+rank-bm25
+
+# Observability
+langsmith
+
+# Evaluation
+ragas
+
+# Testing
+pytest
+pytest-asyncio
+httpx
+
+# Code quality
+black
+ruff
+mypy

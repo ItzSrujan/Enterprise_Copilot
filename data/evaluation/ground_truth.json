@@ -1,0 +1,96 @@
+[
+  {
+    "id": "Q01",
+    "expected_sources": [
+      "payment_troubleshooting.pdf",
+      "payment_policy.pdf"
+    ]
+  },
+  {
+    "id": "Q02",
+    "expected_sources": [
+      "payment_troubleshooting.pdf",
+      "payment_policy.pdf"
+    ]
+  },
+  {
+    "id": "Q03",
+    "expected_sources": [
+      "payment_troubleshooting.pdf",
+      "escalation_policy.pdf"
+    ]
+  },
+  {
+    "id": "Q04",
+    "expected_sources": [
+      "order_management.pdf"
+    ]
+  },
+  {
+    "id": "Q05",
+    "expected_sources": [
+      "refund_policy.pdf"
+    ]
+  },
+  {
+    "id": "Q06",
+    "expected_sources": [
+      "sla_policy.pdf"
+    ]
+  },
+  {
+    "id": "Q07",
+    "expected_sources": [
+      "payment_gateway.pdf"
+    ]
+  },
+  {
+    "id": "Q08",
+    "expected_sources": [
+      "payment_troubleshooting.pdf",
+      "payment_policy.pdf"
+    ]
+  },
+  {
+    "id": "Q09",
+    "expected_sources": [
+      "refund_troubleshooting.pdf",
+      "refund_policy.pdf"
+    ]
+  },
+  {
+    "id": "Q10",
+    "expected_sources": [
+      "account_troubleshooting.pdf",
+      "escalation_policy.pdf"
+    ]
+  },
+  {
+    "id": "Q11",
+    "expected_sources": [
+      "shipping_troubleshooting.pdf"
+    ]
+  },
+  {
+    "id": "Q12",
+    "expected_sources": [
+      "account_troubleshooting.pdf",
+      "account_and_authentication.pdf"
+    ]
+  },
+  {
+    "id": "Q13",
+    "expected_sources": []
+  },
+  {
+    "id": "Q14",
+    "expected_sources": []
+  },
+  {
+    "id": "Q15",
+    "expected_sources": [
+      "payment_gateway.pdf",
+      "payment_policy.pdf"
+    ]
+  }
+]

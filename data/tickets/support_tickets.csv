@@ -1,0 +1,13 @@
+ticket_id,category,issue,resolution,status
+TKT-1001,payment,Card payment failed with issuer decline,Verified FAILED status and advised retry with another approved method,resolved
+TKT-1002,payment,UPI payment pending after authorization,Checked provider reconciliation and waited for authoritative status,resolved
+TKT-1003,payment,Possible duplicate charge,Collected payment IDs and escalated to payments operations,escalated
+TKT-1004,refund,Refund not visible yet,Verified refund reference and policy processing window,resolved
+TKT-1005,shipping,Tracking has no pickup scan,Verified fulfillment handoff and carrier event,resolved
+TKT-1006,shipping,Delivery delayed beyond expected date,Checked carrier exception and escalated,escalated
+TKT-1007,account,Customer locked out after failed logins,Verified ownership and initiated approved recovery,resolved
+TKT-1008,account,Customer requested password recovery code,Directed customer through secure recovery,resolved
+TKT-1009,payment,App shows success but order is unpaid,Used server-side payment status and reconciliation,escalated
+TKT-1010,refund,Partial refund amount disputed,Verified eligible line items and approved amount,resolved
+TKT-1011,security,Suspected account takeover,Escalated through security incident workflow,escalated
+TKT-1012,order,Cancellation requested after shipment,Directed case to return workflow,resolved
