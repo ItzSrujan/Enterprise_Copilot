@@ -101,7 +101,6 @@ logs/
 *.ckpt
 
 # Local model/cache directories
-models/
 checkpoints/
 hf_cache/
 huggingface_cache/
