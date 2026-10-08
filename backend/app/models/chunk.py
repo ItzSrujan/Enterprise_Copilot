@@ -44,7 +44,7 @@ class Chunk(Base):
         nullable = False
     )
     
-    metadata: Mapped[dict] = mapped_column(
+    meta_data: Mapped[dict] = mapped_column(
         JSONB,
         nullable = False,
         default = dict
