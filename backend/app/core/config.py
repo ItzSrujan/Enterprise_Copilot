@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     embedding_device: str = "cpu"
     normalize_embeddings: bool = True
     database_url: str
+    reranker_model: str = "BAAI/bge-reranker-base"
+    reranker_device: str = "cpu"
+    reranker_max_length: int = 512
     
     model_config = SettingsConfigDict(
         env_file = ".env",
