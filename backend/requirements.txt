@@ -61,3 +61,6 @@ httpx
 black
 ruff
 mypy
+
+## Openai
+langchain-openai
