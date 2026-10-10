@@ -1,6 +1,7 @@
 from langchain_core.output_parsers import StrOutputParser
 from backend.app.rag.prompts import RAG_PROMPT
 from backend.app.rag.generation.llm import OpenRouterLLM
+from backend.app.rag.citations.validator import validate_citations
 
 class RAGGenerator:
     """Generate grounded answers from retrieved documents."""
@@ -67,7 +68,19 @@ class RAGGenerator:
             }
         )
         
+        citations_result = validate_citations(
+            answer = answer,
+            sources = sources
+        )
+        
+        print("Citations:", citations_result["citations"])
+        print("Invalid citations:", citations_result["invalid_citations"])
+        print("Has invalid citations:", citations_result["has_invalid_citations"])
+
         return{
             "answer": answer,
-            "sources": sources
+            "sources": sources,
+            "citations": citations_result["citations"],
+            "invalid_citations": citations_result["invalid_citations"],
+            "has_invalid_citations": citations_result["has_invalid_citations"]
         }
