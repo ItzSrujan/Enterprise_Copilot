@@ -42,6 +42,6 @@ def rewrite_query(
     
     # Preserve the previous topic and add the follow-up question.
     return(
-        f"Previous question: {previous_questions}"
-        f"\nFollow up question: {query}"
+        f"Previous question: {previous_questions}\n"
+        f"Follow up question: {query}"
     )
