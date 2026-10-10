@@ -3,6 +3,10 @@ from backend.app.rag.retrieval.hybrid import HybridRetriever
 from backend.app.rag.retrieval.filters import filter_documents
 from backend.app.rag.reranking.cross_encoder import CrossEncoderReranker
 from backend.app.rag.query.processor import process_query
+from backend.app.core.config import settings
+from backend.app.rag.guardrails.relevance import (
+    filter_relevant_documents
+)
 
 class DocRetriever:
     def __init__(self, data_path: str = "data/documents"):
@@ -45,7 +49,16 @@ class DocRetriever:
             top_n = top_k  
         )
         
-        return ranked_docs
+        # Step 4: Apply the relevance gate when a threshold is configured.
+        min_score = settings.reranker_min_score
+        
+        if min_score is not None:
+            ranked_docs = filter_relevant_documents(
+                documents = ranked_docs,
+                min_score = min_score
+            )
+        
+        return ranked_docs[:top_k]
     
     def search_with_query_processing(
         self,

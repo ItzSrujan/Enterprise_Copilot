@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     openrouter_max_tokens: int = 1028
     openrouter_temperature: float = 0.1
     openrouter_timeout: int = 60
+    reranker_min_score: float | None = None
     
     model_config = SettingsConfigDict(
         env_file = ".env",
