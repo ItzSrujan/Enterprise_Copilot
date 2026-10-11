@@ -24,13 +24,18 @@ class OpenRouterLLM:
         self.temperature = settings.openrouter_temperature
 
         self.llm = ChatOpenAI(
-            model=self.model,
-            api_key=api_key,
-            base_url="https://openrouter.ai/api/v1",
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            timeout=settings.openrouter_timeout,
-            max_retries=2,
+            model = self.model,
+            api_key = api_key,
+            base_url = "https://openrouter.ai/api/v1",
+            temperature = self.temperature,
+            max_tokens = self.max_tokens,
+            timeout = settings.openrouter_timeout,
+            max_retries = 2,
+            extra_body = {
+                "reasoning": {
+                    "exclude": True
+                }
+            }
         )
 
     def generate(
