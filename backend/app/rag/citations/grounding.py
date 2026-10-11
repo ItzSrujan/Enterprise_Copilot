@@ -39,6 +39,17 @@ def validate_citation_grounding(
         )
         
         if not citation_ids:
+            claims.append(
+                {
+                    "claim": sentence,
+                    "citations": [],
+                    "status": "uncited",
+                    "explanation": (
+                        "This claim has no inline citation and cannot "
+                        "be verified against a cited source."
+                    )
+                }
+            )
             continue
         
         valid_ids = [
@@ -142,14 +153,28 @@ def validate_citation_grounding(
             )
     counts = {
         status: sum(1 for claim in claims if claim["status"] == status)
-        for status in ("supported", "unsupported", "uncertain")
+        for status in ("supported", "unsupported", "uncertain", "uncited")
     }
+    
+    cited_claims = [
+        claim for claim in claims if claim["citations"]
+    ]
     
     return {
         "claims": claims,
         "counts": counts,
+        "has_uncited_claims": counts["uncited"] > 0,
         "all_cited_claims_supported" : (
-            bool(claims) and counts["supported"] == len(claims)
+            bool(cited_claims) and all(
+                claim["status"] == "supported"
+                for claim in cited_claims
+            )
+        ),
+        "all_claims_grounded": (
+            bool(claims) and all(
+                claim["status"] == "supported"
+                for claim in claims
+            )
         )
     }
     
