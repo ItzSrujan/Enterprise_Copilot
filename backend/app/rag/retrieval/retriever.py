@@ -7,11 +7,13 @@ from backend.app.core.config import settings
 from backend.app.rag.guardrails.relevance import (
     filter_relevant_documents
 )
+from backend.app.rag.retrieval.tickets import TicketRetriever
 
 class DocRetriever:
     def __init__(self, data_path: str = "data/documents"):
         self.hybrid_retriever = HybridRetriever(data_path)
         self.reranker = CrossEncoderReranker()
+        self.ticket_retriever = TicketRetriever()
     
     def retrieve(
         self,
@@ -31,6 +33,13 @@ class DocRetriever:
             k = candidate_k,
             candidate_k = candidate_k
         )
+        
+        ticket_candidates = self.ticket_retriever.search(
+            query = query,
+            k = candidate_k
+        )
+        
+        candidates.extend(ticket_candidates)
         
         # Step 2: Apply optional metadata filters/
         candidates = filter_documents(
