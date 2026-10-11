@@ -144,7 +144,7 @@ def validate_citation_grounding(
                 {
                     "claim": sentence,
                     "citations": valid_ids,
-                    "status": "uncestain",
+                    "status": "uncertain",
                     "explanation": (
                         f"Grounding verification failed:"
                         f"{type(e).__name__}"
