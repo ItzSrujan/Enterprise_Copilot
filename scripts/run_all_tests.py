@@ -457,6 +457,52 @@ class TestSupportTicketDataset(unittest.TestCase):
 
 
 # ---------------------------------------------------------
+# 8. Generation fallback tests
+# ---------------------------------------------------------
+
+class TestGenerationFallback(unittest.TestCase):
+
+    def setUp(self):
+        from backend.app.rag.generation.generator import RAGGenerator
+
+        # Avoid loading the real LLM or making API calls.
+        self.generator = RAGGenerator.__new__(RAGGenerator)
+
+    def test_empty_context_returns_safe_fallback(self):
+        result = self.generator.generate(
+            question="How do I resolve a UPI payment issue?",
+            documents=[],
+        )
+
+        self.assertIsInstance(result, dict)
+        self.assertIn("answer", result)
+
+        answer = result["answer"].lower()
+
+        self.assertTrue(
+            "could not find sufficient supporting information"
+            in answer
+        )
+
+    def test_empty_context_does_not_invent_sources(self):
+        result = self.generator.generate(
+            question="Explain the refund policy.",
+            documents=[],
+        )
+
+        self.assertEqual(result["sources"], [])
+
+    def test_empty_context_does_not_return_citations(self):
+        result = self.generator.generate(
+            question="What is the payment escalation procedure?",
+            documents=[],
+        )
+
+        self.assertEqual(result["sources"], [])
+
+        self.assertNotIn("[S1]", result["answer"])
+        self.assertNotIn("[S2]", result["answer"])
+# ---------------------------------------------------------
 # 7. Test runner
 # ---------------------------------------------------------
 
@@ -473,6 +519,7 @@ def main():
         TestRelevanceGuardrail,
         TestCitationGrounding,
         TestSupportTicketDataset,
+        TestGenerationFallback
     ]
 
     for test_class in test_classes:

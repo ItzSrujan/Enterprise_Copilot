@@ -55,9 +55,7 @@ class RAGGenerator:
         
         if not documents:
             return{
-                "answer":(
-                    "I could not find sufficient supporting information in the available documents."
-                ),
+                "answer": "I could not find sufficient supporting information in the available documents.",
                 "sources": [],
             }
         context, sources = self.prepare_context(documents)
