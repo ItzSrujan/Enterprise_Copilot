@@ -1,4 +1,4 @@
-from langchain_core.output_parsers import StrOutputParser
+from backend.app.rag.chains import build_generation_chain
 from backend.app.rag.prompts import RAG_PROMPT
 from backend.app.rag.generation.llm import OpenRouterLLM
 from backend.app.rag.citations.validator import validate_citations
@@ -9,8 +9,9 @@ class RAGGenerator:
     def __init__(self) -> None:
         self.llm = OpenRouterLLM().llm
         
-        self.chain = (
-            RAG_PROMPT | self.llm | StrOutputParser()
+        self.chain = build_generation_chain(
+            prompt = RAG_PROMPT,
+            llm = self.llm  
         )
         
     @staticmethod
