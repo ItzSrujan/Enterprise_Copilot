@@ -13,9 +13,11 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-
+from backend.app.rag.reranking.cross_encoder import CrossEncoderReranker
 from langchain_core.documents import Document
-
+from backend.app.rag.query.processor import process_query
+from backend.app.rag.query.rewriting import rewrite_query
+from unittest.mock import patch
 
 # ---------------------------------------------------------
 # 1. Project paths
@@ -502,6 +504,198 @@ class TestGenerationFallback(unittest.TestCase):
 
         self.assertNotIn("[S1]", result["answer"])
         self.assertNotIn("[S2]", result["answer"])
+
+class TestCrossEncoderReranker(unittest.TestCase):
+
+    def setUp(self):
+        # Bypass __init__ so the real CrossEncoder model is not loaded.
+        self.reranker = CrossEncoderReranker.__new__(
+            CrossEncoderReranker
+        )
+
+        # Fake model returns predictable scores.
+        self.reranker.model = SimpleNamespace(
+            predict=lambda pairs, show_progress_bar=False: [
+                0.10, 0.95, 0.40
+            ][:len(pairs)]
+        )
+
+    def test_documents_are_sorted_by_score(self):
+        documents = [
+            make_document("Refund policy."),
+            make_document("UPI payment troubleshooting."),
+            make_document("Shipping policy."),
+        ]
+
+        results = self.reranker.rerank(
+            query="UPI payment issue",
+            documents=documents,
+            top_n=3,
+        )
+
+        self.assertEqual(len(results), 3)
+        self.assertEqual(
+            results[0].page_content,
+            "UPI payment troubleshooting.",
+        )
+        self.assertEqual(
+            results[1].page_content,
+            "Shipping policy.",
+        )
+        self.assertEqual(
+            results[2].page_content,
+            "Refund policy.",
+        )
+
+    def test_reranker_scores_are_attached(self):
+        documents = [
+            make_document("Refund policy."),
+            make_document("UPI payment troubleshooting."),
+            make_document("Shipping policy."),
+        ]
+
+        results = self.reranker.rerank(
+            query="UPI payment issue",
+            documents=documents,
+            top_n=3,
+        )
+
+        for document in results:
+            self.assertIn("reranker_score", document.metadata)
+            self.assertIsInstance(
+                document.metadata["reranker_score"],
+                float,
+            )
+
+        self.assertAlmostEqual(
+            results[0].metadata["reranker_score"],
+            0.95,
+        )
+
+    def test_empty_documents_return_empty_list(self):
+        results = self.reranker.rerank(
+            query="UPI payment issue",
+            documents=[],
+        )
+
+        self.assertEqual(results, [])
+
+    def test_blank_query_returns_empty_list(self):
+        documents = [
+            make_document("UPI payment troubleshooting.")
+        ]
+
+        results = self.reranker.rerank(
+            query="   ",
+            documents=documents,
+        )
+
+        self.assertEqual(results, [])
+
+    def test_top_n_limits_results(self):
+        documents = [
+            make_document("Refund policy."),
+            make_document("UPI payment troubleshooting."),
+            make_document("Shipping policy."),
+        ]
+
+        results = self.reranker.rerank(
+            query="UPI payment issue",
+            documents=documents,
+            top_n=2,
+        )
+
+        self.assertEqual(len(results), 2)
+
+
+class TestQueryProcessing(unittest.TestCase):
+
+    def test_empty_query_raises_value_error(self):
+        """An empty or whitespace-only query must be rejected."""
+        with self.assertRaises(ValueError):
+            process_query("   ")
+
+    @patch(
+        "backend.app.rag.query.processor.classify_query",
+        return_value="troubleshooting"
+    )
+    @patch(
+        "backend.app.rag.query.processor.rewrite_query",
+        return_value="How do I resolve a failed UPI payment?"
+    )
+    def test_process_query_returns_expected_fields(
+        self, mock_rewrite, mock_classify
+    ):
+        """The processor returns the original, rewritten query and category."""
+        result = process_query(
+            "  How do I resolve a failed UPI payment?  "
+        )
+
+        self.assertEqual(
+            result["original_query"],
+            "How do I resolve a failed UPI payment?"
+        )
+        self.assertEqual(
+            result["rewritten_query"],
+            "How do I resolve a failed UPI payment?"
+        )
+        self.assertEqual(result["category"], "troubleshooting")
+
+        mock_rewrite.assert_called_once()
+        mock_classify.assert_called_once_with(
+            query="How do I resolve a failed UPI payment?"
+        )
+
+    def test_follow_up_includes_previous_user_question(self):
+        """A recognized follow-up should retain the previous topic."""
+        history = [
+            {
+                "role": "user",
+                "content": "What is the UPI refund policy?"
+            },
+            {
+                "role": "assistant",
+                "content": "Refunds usually follow the payment policy."
+            }
+        ]
+
+        result = rewrite_query(
+            "What about failed transactions?",
+            history
+        )
+
+        self.assertIn(
+            "Previous question: What is the UPI refund policy?",
+            result
+        )
+        self.assertIn(
+            "Follow up question: What about failed transactions?",
+            result
+        )
+
+    def test_non_follow_up_query_remains_unchanged(self):
+        """A standalone question should not be rewritten."""
+        query = "How do I reset my password?"
+
+        result = rewrite_query(
+            query,
+            [
+                {
+                    "role": "user",
+                    "content": "What is the leave policy?"
+                }
+            ]
+        )
+
+        self.assertEqual(result, query)
+
+    def test_follow_up_without_history_remains_unchanged(self):
+        """Without history, the function cannot resolve the previous topic."""
+        query = "What about failed transactions?"
+
+        self.assertEqual(rewrite_query(query), query)
+        self.assertEqual(rewrite_query(query, []), query)
+
 # ---------------------------------------------------------
 # 7. Test runner
 # ---------------------------------------------------------
@@ -519,7 +713,9 @@ def main():
         TestRelevanceGuardrail,
         TestCitationGrounding,
         TestSupportTicketDataset,
-        TestGenerationFallback
+        TestGenerationFallback,
+        TestCrossEncoderReranker,
+        TestQueryProcessing
     ]
 
     for test_class in test_classes:
