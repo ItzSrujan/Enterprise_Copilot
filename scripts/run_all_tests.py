@@ -20,7 +20,8 @@ from backend.app.rag.query.rewriting import rewrite_query
 from backend.app.rag.retrieval.filters import filter_documents
 from unittest.mock import patch, MagicMock
 from backend.app.rag.retrieval.retriever import DocRetriever
-
+from backend.app.rag.chains import build_generation_chain
+from backend.app.rag.pipeline import RAGPipeline
 # ---------------------------------------------------------
 # 1. Project paths
 # ---------------------------------------------------------
@@ -911,6 +912,133 @@ class TestRetrievalFilters(unittest.TestCase):
             "upi_guide.pdf",
         )
 
+
+class TestGenerationChainBuilder(unittest.TestCase):
+
+    def test_build_generation_chain_returns_runnable(self):
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_core.runnables import RunnableLambda
+
+        prompt = ChatPromptTemplate.from_template(
+            "Answer this question: {question}"
+        )
+
+        fake_llm = RunnableLambda(
+            lambda prompt_value: "The payment may have failed."
+        )
+
+        chain = build_generation_chain(prompt, fake_llm)
+
+        result = chain.invoke({"question": "Why did payment fail?"})
+
+        self.assertEqual(
+            result,
+            "The payment may have failed."
+        )
+
+
+class TestRAGPipeline(unittest.TestCase):
+
+    def setUp(self):
+        self.retriever = MagicMock()
+        self.generator = MagicMock()
+
+        self.pipeline = RAGPipeline(
+            retriever=self.retriever,
+            generator=self.generator,
+        )
+
+        self.document = Document(
+            page_content="UPI payments can fail due to bank issues.",
+            metadata={
+                "file_name": "upi_troubleshooting.pdf",
+                "source": "upi_troubleshooting.pdf",
+            },
+        )
+
+        self.retriever.search_with_query_processing.return_value = {
+            "original_query": "What about failed UPI payments?",
+            "processed_query": (
+                "Previous question: UPI refund policy\n"
+                "Follow up question: What about failed UPI payments?"
+            ),
+            "category": "troubleshooting",
+            "documents": [self.document],
+        }
+
+        self.generator.generate.return_value = {
+            "answer": "Check the transaction status. [S1]",
+            "sources": [
+                {"source_id": "S1", "file_name": "upi_troubleshooting.pdf"}
+            ],
+            "citations": ["S1"],
+            "invalid_citations": [],
+            "has_invalid_citations": False,
+            "grounding_results": {
+                "all_claims_grounded": True
+            },
+        }
+
+    def test_empty_question_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            self.pipeline.run("   ")
+
+        self.retriever.search_with_query_processing.assert_not_called()
+
+    def test_invalid_top_k_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            self.pipeline.run("UPI issue", top_k=0)
+
+        self.retriever.search_with_query_processing.assert_not_called()
+
+    def test_run_uses_processed_query_and_returns_answer(self):
+        result = self.pipeline.run(
+            question="What about failed UPI payments?"
+        )
+
+        self.generator.generate.assert_called_once_with(
+            question=self.retriever.search_with_query_processing
+            .return_value["processed_query"],
+            documents=[self.document],
+        )
+
+        self.assertEqual(
+            result["original_query"],
+            "What about failed UPI payments?",
+        )
+        self.assertEqual(result["category"], "troubleshooting")
+        self.assertEqual(result["answer"], "Check the transaction status. [S1]")
+        self.assertEqual(result["citations"], ["S1"])
+        self.assertEqual(result["retrieved_document_count"], 1)
+
+    def test_no_documents_returns_safe_fallback(self):
+        self.retriever.search_with_query_processing.return_value = {
+            "original_query": "Unknown issue",
+            "processed_query": "Unknown issue",
+            "category": "general",
+            "documents": [],
+        }
+
+        self.generator.generate.return_value = {
+            "answer": (
+                "I could not find sufficient supporting information "
+                "in the available documents."
+            ),
+            "sources": [],
+        }
+
+        result = self.pipeline.run("Unknown issue")
+
+        self.generator.generate.assert_called_once_with(
+            question="Unknown issue",
+            documents=[],
+        )
+
+        self.assertEqual(result["retrieved_document_count"], 0)
+        self.assertEqual(result["sources"], [])
+        self.assertEqual(result["citations"], [])
+        self.assertFalse(result["has_invalid_citations"])
+
 # ---------------------------------------------------------
 # 7. Test runner
 # ---------------------------------------------------------
@@ -932,7 +1060,9 @@ def main():
         TestCrossEncoderReranker,
         TestQueryProcessing,
         TestIntegratedRetrieval,
-        TestRetrievalFilters
+        TestRetrievalFilters,
+        TestGenerationChainBuilder,
+        TestRAGPipeline
     ]
 
     for test_class in test_classes:
