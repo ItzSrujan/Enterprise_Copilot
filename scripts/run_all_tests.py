@@ -17,7 +17,8 @@ from backend.app.rag.reranking.cross_encoder import CrossEncoderReranker
 from langchain_core.documents import Document
 from backend.app.rag.query.processor import process_query
 from backend.app.rag.query.rewriting import rewrite_query
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+from backend.app.rag.retrieval.retriever import DocRetriever
 
 # ---------------------------------------------------------
 # 1. Project paths
@@ -696,6 +697,144 @@ class TestQueryProcessing(unittest.TestCase):
         self.assertEqual(rewrite_query(query), query)
         self.assertEqual(rewrite_query(query, []), query)
 
+
+class TestIntegratedRetrieval(unittest.TestCase):
+
+    def setUp(self):
+        # Bypass __init__ to avoid loading real models or databases.
+        self.retriever = DocRetriever.__new__(DocRetriever)
+
+        self.retriever.hybrid_retriever = MagicMock()
+        self.retriever.ticket_retriever = MagicMock()
+        self.retriever.reranker = MagicMock()
+
+        self.document = Document(
+            page_content="UPI payments may fail due to bank issues.",
+            metadata={
+                "file_name": "upi_troubleshooting.pdf",
+                "source": "upi_troubleshooting.pdf",
+                "doc_type": "troubleshooting",
+            },
+        )
+
+        self.ticket = Document(
+            page_content="Ticket TKT-1002 describes a failed UPI payment.",
+            metadata={
+                "ticket_id": "TKT-1002",
+                "source_type": "support_ticket",
+                "category": "UPI",
+            },
+        )
+
+    @patch("backend.app.rag.retrieval.retriever.settings")
+    def test_document_and_ticket_candidates_are_combined(
+        self, mock_settings
+    ):
+        mock_settings.reranker_min_score = None
+
+        self.retriever.hybrid_retriever.search.return_value = [
+            self.document
+        ]
+        self.retriever.ticket_retriever.search.return_value = [
+            self.ticket
+        ]
+        self.retriever.reranker.rerank.side_effect = (
+            lambda query, documents, top_n: documents[:top_n]
+        )
+
+        results = self.retriever.retrieve(
+            query="Why did a UPI payment fail?",
+            top_k=5,
+            candidate_k=10,
+        )
+
+        self.assertEqual(len(results), 2)
+        self.assertIn(self.document, results)
+        self.assertIn(self.ticket, results)
+
+        self.retriever.hybrid_retriever.search.assert_called_once()
+        self.retriever.ticket_retriever.search.assert_called_once()
+
+    @patch("backend.app.rag.retrieval.retriever.settings")
+    @patch("backend.app.rag.retrieval.retriever.filter_documents")
+    def test_metadata_filter_runs_before_reranking(
+        self, mock_filter, mock_settings
+    ):
+        mock_settings.reranker_min_score = None
+
+        mock_filter.return_value = [self.document]
+        self.retriever.hybrid_retriever.search.return_value = [
+            self.document
+        ]
+        self.retriever.ticket_retriever.search.return_value = [
+            self.ticket
+        ]
+        self.retriever.reranker.rerank.return_value = [
+            self.document
+        ]
+
+        results = self.retriever.retrieve(
+            query="UPI troubleshooting",
+            doc_type="troubleshooting",
+        )
+
+        mock_filter.assert_called_once()
+        self.retriever.reranker.rerank.assert_called_once()
+
+        reranker_documents = (
+            self.retriever.reranker.rerank.call_args.kwargs["documents"]
+        )
+        self.assertEqual(reranker_documents, [self.document])
+        self.assertEqual(results, [self.document])
+
+    def test_invalid_retrieval_parameters_return_empty_list(self):
+        self.assertEqual(self.retriever.retrieve("   "), [])
+        self.assertEqual(self.retriever.retrieve("UPI", top_k=0), [])
+        self.assertEqual(
+            self.retriever.retrieve("UPI", candidate_k=0), []
+        )
+
+        self.retriever.hybrid_retriever.search.assert_not_called()
+        self.retriever.ticket_retriever.search.assert_not_called()
+
+    @patch("backend.app.rag.retrieval.retriever.process_query")
+    def test_search_with_query_processing_uses_rewritten_query(
+        self, mock_process_query
+    ):
+        mock_process_query.return_value = {
+            "original_query": "What about failed transactions?",
+            "rewritten_query": (
+                "Previous question: UPI refund policy\n"
+                "Follow up question: What about failed transactions?"
+            ),
+            "category": "troubleshooting",
+        }
+
+        self.retriever.retrieve = MagicMock(return_value=[self.ticket])
+
+        result = self.retriever.search_with_query_processing(
+            query="What about failed transactions?"
+        )
+
+        self.retriever.retrieve.assert_called_once_with(
+            query=mock_process_query.return_value["rewritten_query"],
+            top_k=5,
+            candidate_k=20,
+            doc_type=None,
+            file_name=None,
+        )
+
+        self.assertEqual(
+            result["original_query"],
+            "What about failed transactions?",
+        )
+        self.assertEqual(
+            result["processed_query"],
+            mock_process_query.return_value["rewritten_query"],
+        )
+        self.assertEqual(result["category"], "troubleshooting")
+        self.assertEqual(result["documents"], [self.ticket])
+
 # ---------------------------------------------------------
 # 7. Test runner
 # ---------------------------------------------------------
@@ -715,7 +854,8 @@ def main():
         TestSupportTicketDataset,
         TestGenerationFallback,
         TestCrossEncoderReranker,
-        TestQueryProcessing
+        TestQueryProcessing,
+        TestIntegratedRetrieval
     ]
 
     for test_class in test_classes:
