@@ -17,6 +17,7 @@ from backend.app.rag.reranking.cross_encoder import CrossEncoderReranker
 from langchain_core.documents import Document
 from backend.app.rag.query.processor import process_query
 from backend.app.rag.query.rewriting import rewrite_query
+from backend.app.rag.retrieval.filters import filter_documents
 from unittest.mock import patch, MagicMock
 from backend.app.rag.retrieval.retriever import DocRetriever
 
@@ -835,6 +836,81 @@ class TestIntegratedRetrieval(unittest.TestCase):
         self.assertEqual(result["category"], "troubleshooting")
         self.assertEqual(result["documents"], [self.ticket])
 
+
+class TestRetrievalFilters(unittest.TestCase):
+
+    def setUp(self):
+        self.documents = [
+            Document(
+                page_content="UPI troubleshooting instructions",
+                metadata={
+                    "document_type": "troubleshooting",
+                    "file_name": "upi_guide.pdf",
+                },
+            ),
+            Document(
+                page_content="Refund policy information",
+                metadata={
+                    "document_type": "policy",
+                    "file_name": "refund_policy.pdf",
+                },
+            ),
+            Document(
+                page_content="UPI support FAQ",
+                metadata={
+                    "document_type": "faq",
+                    "file_name": "upi_guide.pdf",
+                },
+            ),
+            Document(
+                page_content="Document without filter metadata",
+                metadata={},
+            ),
+        ]
+
+    def test_document_type_filter(self):
+        results = filter_documents(
+            self.documents,
+            doc_type="troubleshooting",
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(
+            results[0].metadata["file_name"],
+            "upi_guide.pdf",
+        )
+
+    def test_filename_filter(self):
+        results = filter_documents(
+            self.documents,
+            file_name="upi_guide.pdf",
+        )
+
+        self.assertEqual(len(results), 2)
+        self.assertTrue(
+            all(
+                doc.metadata.get("file_name") == "upi_guide.pdf"
+                for doc in results
+            )
+        )
+
+    def test_combined_filters(self):
+        results = filter_documents(
+            self.documents,
+            doc_type="troubleshooting",
+            file_name="upi_guide.pdf",
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(
+            results[0].metadata["document_type"],
+            "troubleshooting",
+        )
+        self.assertEqual(
+            results[0].metadata["file_name"],
+            "upi_guide.pdf",
+        )
+
 # ---------------------------------------------------------
 # 7. Test runner
 # ---------------------------------------------------------
@@ -855,7 +931,8 @@ def main():
         TestGenerationFallback,
         TestCrossEncoderReranker,
         TestQueryProcessing,
-        TestIntegratedRetrieval
+        TestIntegratedRetrieval,
+        TestRetrievalFilters
     ]
 
     for test_class in test_classes:
