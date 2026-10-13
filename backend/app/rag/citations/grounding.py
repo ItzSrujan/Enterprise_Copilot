@@ -4,6 +4,37 @@ from langchain_core.messages import (
     SystemMessage
 )
 
+def parse_grounding_response(raw: str) -> dict:
+    """Extract and parse a JSON object from the verifier response."""
+
+    if not isinstance(raw, str):
+        raise ValueError("Verifier returned non-text output.")
+
+    raw = raw.strip()
+
+    # Remove optional Markdown code fences.
+    raw = re.sub(
+        r"^\s*```(?:json)?\s*",
+        "",
+        raw,
+        flags=re.IGNORECASE,
+    )
+    raw = re.sub(r"\s*```\s*$", "", raw)
+
+    # Find the beginning of the JSON object.
+    start = raw.find("{")
+
+    if start == -1:
+        raise ValueError("No JSON object found in verifier response.")
+
+    # Parse one JSON object, allowing harmless text after it.
+    result, _ = json.JSONDecoder().raw_decode(raw[start:])
+
+    if not isinstance(result, dict):
+        raise ValueError("Verifier response must be a JSON object.")
+
+    return result
+
 def validate_citation_grounding(
     answer: str,
     documents: list,
@@ -114,18 +145,17 @@ def validate_citation_grounding(
             
             if not isinstance(raw, str):
                 raise ValueError("Verifier returned non-text output")
-            
-            raw = raw.strip()
-            raw = re.sub(r"^```(?:json)?\s*", "", raw)
-            raw = re.sub(r"\s*```$", "", raw)
-            
-            result = json.loads(raw)
+
+            result = parse_grounding_response(raw)
             
             status = result.get("status")
             explanation = result.get("explanation", "")
             
+            if isinstance(status, str):
+                status = status.strip().lower()
+                
             if status not in {"supported", "unsupported", "uncertain"}:
-                raise ValueError("Invalid grounding status.")
+                raise ValueError(f"Invalid grounding status: {status!r}")
             
             if not isinstance(explanation, str):
                 raise ValueError("Invalid grounding explanation.")
@@ -147,7 +177,7 @@ def validate_citation_grounding(
                     "status": "uncertain",
                     "explanation": (
                         f"Grounding verification failed:"
-                        f"{type(e).__name__}"
+                        f"{type(e).__name__}: {str(e)[:200]}"
                     )
                 }
             )

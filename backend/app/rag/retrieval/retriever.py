@@ -1,74 +1,78 @@
+
 from langchain_core.documents import Document
+
 from backend.app.rag.retrieval.hybrid import HybridRetriever
 from backend.app.rag.retrieval.filters import filter_documents
 from backend.app.rag.reranking.cross_encoder import CrossEncoderReranker
 from backend.app.rag.query.processor import process_query
 from backend.app.core.config import settings
-from backend.app.rag.guardrails.relevance import (
-    filter_relevant_documents
-)
+from backend.app.rag.guardrails.relevance import filter_relevant_documents
 from backend.app.rag.retrieval.tickets import TicketRetriever
+
 
 class DocRetriever:
     def __init__(self, data_path: str = "data/documents"):
         self.hybrid_retriever = HybridRetriever(data_path)
         self.reranker = CrossEncoderReranker()
         self.ticket_retriever = TicketRetriever()
-    
+
     def retrieve(
         self,
         query: str,
         top_k: int = 5,
         candidate_k: int = 20,
         doc_type: str | None = None,
-        file_name: str | None = None
+        file_name: str | None = None,
     ) -> list[Document]:
-        
+
         if not query.strip() or top_k <= 0 or candidate_k <= 0:
             return []
-        
-        # Step 1: Retrieve a broad set of candidates.
+
+        # Step 1: Retrieve PDF/document candidates using hybrid search.
         candidates = self.hybrid_retriever.search(
-            query = query,
-            k = candidate_k,
-            candidate_k = candidate_k
+            query=query,
+            k=candidate_k,
+            candidate_k=candidate_k,
         )
-        
+
+        # Step 2: Retrieve support-ticket candidates.
         ticket_candidates = self.ticket_retriever.search(
-            query = query,
-            k = candidate_k
+            query=query,
+            k=candidate_k,
         )
-        
+
+        # Step 3: Combine document and ticket candidates.
         candidates.extend(ticket_candidates)
-        
-        # Step 2: Apply optional metadata filters/
+
+        # Step 4: Apply optional metadata filters.
         candidates = filter_documents(
             candidates,
-            doc_type = doc_type,
-            file_name = file_name
+            doc_type=doc_type,
+            file_name=file_name,
         )
-        
+
         if not candidates:
             return []
-        
-        # Step 3: Rerank candidates using the query and document text.
+
+        # Step 5: Rerank all candidates by relevance to the query.
         ranked_docs = self.reranker.rerank(
-            query = query,
-            documents = candidates,
-            top_n = top_k  
+            query=query,
+            documents=candidates,
+            top_n=len(candidates),
         )
-        
-        # Step 4: Apply the relevance gate when a threshold is configured.
+
+        # Step 6: Remove documents below the configured relevance threshold.
         min_score = settings.reranker_min_score
-        
+
         if min_score is not None:
             ranked_docs = filter_relevant_documents(
-                documents = ranked_docs,
-                min_score = min_score
+                documents=ranked_docs,
+                min_score=min_score,
             )
-        
+
+        # Step 7: Return only the highest-ranked relevant documents.
         return ranked_docs[:top_k]
-    
+
     def search_with_query_processing(
         self,
         query: str,
@@ -76,34 +80,34 @@ class DocRetriever:
         top_k: int = 5,
         candidate_k: int = 20,
         document_type: str | None = None,
-        file_name: str | None = None
+        file_name: str | None = None,
     ) -> dict:
         """Process a query, retrieve relevant documents, and return both."""
-        
+
         if not query or not query.strip():
             raise ValueError("Query must not be empty.")
 
         if top_k <= 0 or candidate_k <= 0:
             raise ValueError("top_k and candidate_k must be positive.")
-        
+
         query_result = process_query(
-            query = query,
-            conversation_history = conversation_history
+            query=query,
+            conversation_history=conversation_history,
         )
-        
+
         processed_query = query_result["rewritten_query"]
-        
+
         documents = self.retrieve(
-            query = processed_query,
-            top_k = top_k,
-            candidate_k = candidate_k,
-            doc_type = document_type,
-            file_name = file_name
+            query=processed_query,
+            top_k=top_k,
+            candidate_k=candidate_k,
+            doc_type=document_type,
+            file_name=file_name,
         )
-        
-        return{
+
+        return {
             "original_query": query_result["original_query"],
             "processed_query": processed_query,
             "category": query_result["category"],
-            "documents": documents
+            "documents": documents,
         }

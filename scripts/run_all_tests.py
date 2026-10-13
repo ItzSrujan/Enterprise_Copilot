@@ -22,6 +22,9 @@ from unittest.mock import patch, MagicMock
 from backend.app.rag.retrieval.retriever import DocRetriever
 from backend.app.rag.chains import build_generation_chain
 from backend.app.rag.pipeline import RAGPipeline
+from backend.app.rag.citations.grounding import (
+    parse_grounding_response,
+)
 # ---------------------------------------------------------
 # 1. Project paths
 # ---------------------------------------------------------
@@ -1039,6 +1042,39 @@ class TestRAGPipeline(unittest.TestCase):
         self.assertEqual(result["citations"], [])
         self.assertFalse(result["has_invalid_citations"])
 
+class TestGroundingResponseParser(unittest.TestCase):
+
+    def test_parses_json_inside_markdown_fence(self):
+        raw = '''```json
+        {
+            "status": "supported",
+            "explanation": "The source supports the claim."
+        }
+        ```'''
+
+        result = parse_grounding_response(raw)
+
+        self.assertEqual(result["status"], "supported")
+        self.assertEqual(
+            result["explanation"],
+            "The source supports the claim.",
+        )
+
+    def test_parses_json_with_leading_text(self):
+        raw = (
+            'Evaluation result:\n'
+            '{"status": "uncertain", '
+            '"explanation": "Evidence is inconclusive."}'
+        )
+
+        result = parse_grounding_response(raw)
+
+        self.assertEqual(result["status"], "uncertain")
+        self.assertEqual(
+            result["explanation"],
+            "Evidence is inconclusive.",
+        )
+
 # ---------------------------------------------------------
 # 7. Test runner
 # ---------------------------------------------------------
@@ -1062,7 +1098,8 @@ def main():
         TestIntegratedRetrieval,
         TestRetrievalFilters,
         TestGenerationChainBuilder,
-        TestRAGPipeline
+        TestRAGPipeline,
+        TestGroundingResponseParser
     ]
 
     for test_class in test_classes:
