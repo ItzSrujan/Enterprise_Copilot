@@ -1,6 +1,7 @@
 from backend.app.db.base import Base
 from backend.app.db.database import engine
 from backend.app.models import Chunk
+from backend.app.models.user import User
 
 def main():
     Base.metadata.create_all(bind = engine)
