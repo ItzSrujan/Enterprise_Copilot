@@ -9,6 +9,8 @@ from backend.app.schemas.auth import LoginRequest, TokenResponse, UserResponse
 from backend.app.services.auth_service import authenticate_user
 from backend.app.auth.dependencies import get_current_user
 from backend.app.models.user import User
+from backend.app.auth.permissions import require_roles
+from backend.app.auth.roles import UserRole
 
 
 router = APIRouter(
@@ -46,3 +48,10 @@ def get_me(
     current_user: Annotated[User, Depends(get_current_user)]
 ) -> User:
     return current_user
+
+@router.get(
+    "/admin-check",
+    dependencies = [Depends(require_roles(UserRole.ADMIN))]
+)
+def admin_check():
+    return{"message": "Admin access granted"}
