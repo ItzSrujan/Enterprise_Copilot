@@ -64,3 +64,6 @@ mypy
 
 ## Openai
 langchain-openai
+
+# pydantic
+pydantic[email]

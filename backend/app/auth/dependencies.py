@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,14 +9,21 @@ from backend.app.auth.jwt import decode_access_token
 from backend.app.db.session import get_db
 from backend.app.models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl = "/api/v1/auth/login"
-)
+bearer_scheme = HTTPBearer(auto_error = False)
 
 def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     db: Annotated[Session, Depends(get_db)]
 ) -> User:
+    if credentials is None:
+        raise HTTPException(
+            status_code = status.HTTP_401_UNAUTHORIZED,
+            detail = "Missing bearer token",
+            headers = {"WWW-Authenticate": "Bearer"}
+        )
+        
+    token = credentials.credentials
+    
     credentials_error = HTTPException(
         status_code = status.HTTP_401_UNAUTHORIZED,
         detail = "Could not validate credentials",
