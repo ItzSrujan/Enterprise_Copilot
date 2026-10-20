@@ -26,14 +26,6 @@ def chat(
     """Answer an authenticated user's question using RAG."""
     try:
         pipeline = get_rag_pipeline()
-
-        # Diagnostic logs: inspect the incoming API request.
-        print("API question:", request.question)
-        print("API top_k:", request.top_k)
-        print("API candidate_k:", request.candidate_k)
-        print("API document_type:", request.document_type)
-        print("API file_name:", request.file_name)
-
         result = pipeline.run(
             question=request.question,
             conversation_history=request.conversation_history,
@@ -42,13 +34,6 @@ def chat(
             document_type=request.document_type,
             file_name=request.file_name,
         )
-
-        # Diagnostic logs: inspect the pipeline result.
-        print(
-            "Pipeline retrieved count:",
-            result.get("retrieved_document_count"),
-        )
-        print("Pipeline sources:", result.get("sources"))
 
         return ChatResponse(**result)
 
