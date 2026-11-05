@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=5000)
-
+    conversation_id: int | None = Field(default = None, ge = 1)
     conversation_history: list[dict[str, str]] | None = None
 
     top_k: int = Field(default=5, ge=1, le=20)
@@ -32,7 +32,7 @@ class ChatResponse(BaseModel):
     processed_query: str
     category: str | None = None
     answer: str
-
+    conversation_id: int
     sources: list[Any] = Field(default_factory=list)
     citations: list[Any] = Field(default_factory=list)
     invalid_citations: list[Any] = Field(default_factory=list)
