@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, func, update
 from sqlalchemy.orm import Session, selectinload
 
 from backend.app.models.conversation import Conversation
@@ -133,6 +133,12 @@ def save_message_pair(
                 user_message,
                 assistant_message
             ]
+        )
+        
+        db.execute(
+            update(Conversation)
+            .where(Conversation.id == conversation_id)
+            .values(updated_at = func.now())
         )
         
         db.flush()
