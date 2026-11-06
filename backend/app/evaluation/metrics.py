@@ -1,19 +1,27 @@
 def calculate_precision(
     retrieved_ids: list[int],
-    relevant_ids: list[int]
+    relevant_ids: list[int],
+    retrieved_count: int | None = None,
 ) -> float:
-    ## Calculate precision@K.
-    if not retrieved_ids:
+    """Calculate Precision@K."""
+
+    denominator = (
+        retrieved_count
+        if retrieved_count is not None
+        else len(retrieved_ids)
+    )
+
+    if denominator == 0:
         return 0.0
-    
+
     relevant_set = set(relevant_ids)
-    
+
     relevant_retrieved = sum(
         1 for chunk_id in retrieved_ids
         if chunk_id in relevant_set
     )
-    
-    return relevant_retrieved / len(retrieved_ids)
+
+    return relevant_retrieved / denominator
 
 def calculate_recall(
     retrieved_ids: list[int],
@@ -63,11 +71,12 @@ def calculate_mrr(
 def calculate_retrieval_metrics(
     retrieved_ids: list[int],
     relevant_ids: list[int],
+    retrieved_count: int | None = None
 ) -> dict[str, float]:
     """Calculate all retrieval metrics."""
 
     precision = calculate_precision(
-        retrieved_ids, relevant_ids
+        retrieved_ids, relevant_ids, retrieved_count
     )
 
     recall = calculate_recall(
