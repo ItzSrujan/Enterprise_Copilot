@@ -124,6 +124,7 @@ def evaluate_generation(
     answer: str,
     documents: list,
     llm,
+    grounding_result: dict | None = None
 ) -> dict:
     """
     Evaluate the generated answer using:
@@ -147,11 +148,14 @@ def evaluate_generation(
         sources = sources
     )
     
-    grounding_results = validate_citation_grounding(
-        answer=answer,
-        documents=documents,
-        llm=llm,
-    )
+    if grounding_result is None:
+        grounding_results = validate_citation_grounding(
+            answer=answer,
+            documents=documents,
+            llm=llm,
+        )
+    else:
+        grounding_results = grounding_result
     
     faithfulness = calculate_faithfulness(
         grounding_results

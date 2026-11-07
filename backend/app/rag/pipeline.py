@@ -20,7 +20,8 @@ class RAGPipeline:
         top_k: int = 5,
         candidate_k: int = 20,
         document_type: str | None = None,
-        file_name: str | None = None
+        file_name: str | None = None,
+        include_documents: bool = False
     ) -> dict:
         """Run the complete RAG workflow and return a structured result."""
         
@@ -50,22 +51,23 @@ class RAGPipeline:
             documents = documents
         )
         
-        # 3. Return a consistent response structure.
-        return{
+        result = {
             "original_query": retrieval_result["original_query"],
             "processed_query": processed_query,
             "category": retrieval_result["category"],
             "answer": generation_result["answer"],
             "sources": generation_result.get("sources", []),
             "citations": generation_result.get("citations", []),
-            "invalid_citations": generation_result.get(
-                "invalid_citations", []
-            ),
+            "invalid_citations": generation_result.get("invalid_citations", []),
             "has_invalid_citations": generation_result.get(
                 "has_invalid_citations", False
             ),
-            "grounding_results": generation_result.get(
-                "grounding_results"
-            ),
-            "retrieved_document_count": len(documents)
+            "grounding_results": generation_result.get("grounding_results"),
+            "retrieved_document_count": len(documents),
         }
+        
+        if include_documents:
+            result["retrieved_documents"] = documents
+
+        # 3. Return a consistent response structure.
+        return result

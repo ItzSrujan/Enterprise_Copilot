@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class EvaluationCreate(BaseModel):
     question: str = Field(min_length = 3)
     expected_answer: str | None = None
+    relevant_chunk_ids: list[int] = Field(default_factory = list)
 
 class EvaluationResponse(BaseModel):
     id: int
