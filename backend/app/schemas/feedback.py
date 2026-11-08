@@ -15,3 +15,16 @@ class FeedbackResponse(BaseModel):
     created_at: datetime
     
     model_config = ConfigDict(from_attributes = True)
+
+class AdminFeedbackItem(BaseModel):
+    id: int
+    message_id: int
+    user_id: int
+    user_email: str
+    user_name: str | None = None
+    query_snippet: str | None = None
+    rating: Literal["positive", "negative"]
+    comment: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes = True)

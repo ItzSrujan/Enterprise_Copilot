@@ -34,7 +34,7 @@ def run_evaluation(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[
         User,
-        Depends(require_roles(UserRole.ADMIN, UserRole.SUPPORT))
+        Depends(require_roles(UserRole.ADMIN))
     ]
 ) -> EvaluationResponse:
     try:
@@ -84,7 +84,7 @@ def get_evaluation_history(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[
         User,
-        Depends(require_roles(UserRole.ADMIN, UserRole.SUPPORT))
+        Depends(require_roles(UserRole.ADMIN))
     ],
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -102,7 +102,7 @@ def get_evaluation_details(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[
         User,
-        Depends(require_roles(UserRole.ADMIN, UserRole.SUPPORT))
+        Depends(require_roles(UserRole.ADMIN))
     ],
 ):
     evaluation = get_evaluation(

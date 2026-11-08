@@ -67,3 +67,41 @@ def submit_or_update_feedback(
     except Exception:
         db.rollback()
         raise
+
+
+def list_admin_feedback(
+    db: Session,
+    rating: str | None = None,
+) -> list[dict]:
+    """
+    List all submitted feedback for Admin review with user and message details.
+    """
+    from backend.app.models.user import User
+
+    statement = (
+        select(Feedback, User, Message)
+        .join(User, Feedback.user_id == User.id)
+        .join(Message, Feedback.message_id == Message.id)
+        .order_by(Feedback.created_at.desc())
+    )
+
+    if rating in ("positive", "negative"):
+        statement = statement.where(Feedback.rating == rating)
+
+    rows = db.execute(statement).all()
+    results = []
+    for fb, u, m in rows:
+        results.append(
+            {
+                "id": fb.id,
+                "message_id": fb.message_id,
+                "user_id": fb.user_id,
+                "user_email": u.email,
+                "user_name": u.full_name,
+                "query_snippet": m.content[:150] if m.content else "",
+                "rating": fb.rating,
+                "comment": fb.comment,
+                "created_at": fb.created_at,
+            }
+        )
+    return results

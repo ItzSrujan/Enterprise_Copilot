@@ -18,13 +18,14 @@ from backend.app.auth.permissions import require_roles
 from backend.app.auth.roles import UserRole
 from backend.app.db.session import get_db
 from backend.app.models.user import User
-from backend.app.schemas.document import DocumentResponse
+from backend.app.schemas.document import DocumentResponse, AdminStatsResponse
 from backend.app.services.document_service import (
     create_document,
     ingest_document,
     get_document,
     list_documents,
     delete_document,
+    get_admin_document_stats,
 )
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -43,7 +44,7 @@ UPLOAD_DIR = Path("data/documents")
     "/upload",
     response_model=DocumentResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.SUPPORT))],
+    dependencies=[Depends(require_roles(UserRole.ADMIN))],
 )
 def upload_document(
     file: UploadFile = File(...),
@@ -105,9 +106,20 @@ def upload_document(
 
 
 @router.get(
+    "/stats",
+    response_model=AdminStatsResponse,
+    dependencies=[Depends(require_roles(UserRole.ADMIN))],
+)
+def get_admin_stats(
+    db: Session = Depends(get_db),
+):
+    return get_admin_document_stats(db)
+
+
+@router.get(
     "",
     response_model=list[DocumentResponse],
-    dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.SUPPORT))],
+    dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.EMPLOYEE))],
 )
 def get_documents(
     db: Session = Depends(get_db),
@@ -118,7 +130,7 @@ def get_documents(
 @router.get(
     "/{document_id}",
     response_model=DocumentResponse,
-    dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.SUPPORT))],
+    dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.EMPLOYEE))],
 )
 def get_document_details(
     document_id: int,
@@ -138,7 +150,7 @@ def get_document_details(
 @router.delete(
     "/{document_id}",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.SUPPORT))],
+    dependencies=[Depends(require_roles(UserRole.ADMIN))],
 )
 def remove_document(
     document_id: int,

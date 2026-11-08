@@ -16,3 +16,20 @@ class DocumentResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CategoryStats(BaseModel):
+    category: str
+    count: int
+    chunks: int
+
+
+class AdminStatsResponse(BaseModel):
+    total_documents: int
+    processed_documents: int
+    failed_documents: int
+    processing_documents: int
+    total_users: int
+    total_chunks: int
+    category_distribution: list[CategoryStats]
+    recent_documents: list[DocumentResponse]

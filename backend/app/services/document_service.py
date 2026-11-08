@@ -137,3 +137,43 @@ def delete_document(
     except Exception:
         db.rollback()
         raise
+
+
+def get_admin_document_stats(db: Session) -> dict:
+    from sqlalchemy import func
+    from backend.app.models.user import User
+
+    total_docs = db.query(func.count(Document.id)).scalar() or 0
+    processed_docs = db.query(func.count(Document.id)).filter(Document.status == "completed").scalar() or 0
+    failed_docs = db.query(func.count(Document.id)).filter(Document.status == "failed").scalar() or 0
+    processing_docs = db.query(func.count(Document.id)).filter(Document.status == "processing").scalar() or 0
+    total_users = db.query(func.count(User.id)).scalar() or 0
+    total_chunks = db.query(func.count(Chunk.id)).scalar() or 0
+
+    cat_counts = (
+        db.query(
+            Document.document_type,
+            func.count(Document.id),
+            func.coalesce(func.sum(Document.chunk_count), 0),
+        )
+        .group_by(Document.document_type)
+        .all()
+    )
+    category_distribution = [
+        {"category": cat, "count": int(count), "chunks": int(chunks)}
+        for cat, count, chunks in cat_counts
+    ]
+
+    recent_stmt = select(Document).order_by(Document.created_at.desc()).limit(10)
+    recent_docs = list(db.execute(recent_stmt).scalars().all())
+
+    return {
+        "total_documents": int(total_docs),
+        "processed_documents": int(processed_docs),
+        "failed_documents": int(failed_docs),
+        "processing_documents": int(processing_docs),
+        "total_users": int(total_users),
+        "total_chunks": int(total_chunks),
+        "category_distribution": category_distribution,
+        "recent_documents": recent_docs,
+    }

@@ -135,13 +135,12 @@ reports/generated/
 
 
 # =========================================================
-# Node / Next.js Frontend
+# Node / React Frontend (Vite)
 # =========================================================
 
 frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/build/
+frontend/dist/
+frontend/dist-ssr/
 
 frontend/.env
 frontend/.env.*
