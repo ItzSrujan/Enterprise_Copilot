@@ -1,5 +1,5 @@
 from sqlalchemy import select, func, update
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from backend.app.models.conversation import Conversation
 from backend.app.models.message import Message
@@ -29,7 +29,7 @@ def get_user_conversation(
         select(Conversation).where(
             Conversation.id == conversation_id,
             Conversation.user_id == user_id
-        ).options(selectinload(Conversation.messages))
+        )
     )
     
     return db.scalars(statement).first()
@@ -69,12 +69,20 @@ def get_conversation_history(
     if conversation is None:
         return []
     
+    statement = (
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.asc(), Message.id.asc())
+    )
+    
+    messages = db.scalars(statement).all()
+    
     return[
         {
             "role": message.role,
             "content": message.content
         }
-        for message in conversation.messages
+        for message in messages
     ]
     
 def list_user_conversation(

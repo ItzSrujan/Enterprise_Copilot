@@ -48,7 +48,8 @@ class RAGPipeline:
         # RAGGenerator handles the empty-document fallback.
         generation_result = self.generator.generate(
             question = processed_query,
-            documents = documents
+            documents = documents,
+            conversation_history = conversation_history
         )
         
         result = {

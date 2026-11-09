@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=5000)
     conversation_id: int | None = Field(default = None, ge = 1)
-    conversation_history: list[dict[str, str]] | None = None
 
     top_k: int = Field(default=5, ge=1, le=20)
     candidate_k: int = Field(default=20, ge=1, le=100)

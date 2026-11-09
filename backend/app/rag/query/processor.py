@@ -7,6 +7,7 @@ def process_query(
     conversation_history: Sequence[dict[str, str]] | None = None
 ) -> dict[str, str]:
     query = query.strip()
+    
     if not query:
         raise ValueError("Query cannot be empty")
     
@@ -15,7 +16,7 @@ def process_query(
         conversation_history = conversation_history
     )
     
-    category = classify_query(query = query)
+    category = classify_query(query = rewritten_query)
     
     return{
         "original_query": query.strip(),

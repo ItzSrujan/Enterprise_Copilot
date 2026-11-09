@@ -614,10 +614,11 @@ class TestCrossEncoderReranker(unittest.TestCase):
         self.assertEqual(len(results), 2)
 
 
+
 class TestQueryProcessing(unittest.TestCase):
 
     def test_empty_query_raises_value_error(self):
-        """An empty or whitespace-only query must be rejected."""
+        """An empty query must be rejected."""
         with self.assertRaises(ValueError):
             process_query("   ")
 
@@ -632,7 +633,6 @@ class TestQueryProcessing(unittest.TestCase):
     def test_process_query_returns_expected_fields(
         self, mock_rewrite, mock_classify
     ):
-        """The processor returns the original, rewritten query and category."""
         result = process_query(
             "  How do I resolve a failed UPI payment?  "
         )
@@ -652,8 +652,12 @@ class TestQueryProcessing(unittest.TestCase):
             query="How do I resolve a failed UPI payment?"
         )
 
-    def test_follow_up_includes_previous_user_question(self):
-        """A recognized follow-up should retain the previous topic."""
+    @patch("backend.app.rag.query.rewriting.get_query_rewriter_chain")
+    def test_follow_up_includes_previous_user_question(
+        self, mock_get_chain
+    ):
+        """Follow-up rewriting must use conversation history."""
+
         history = [
             {
                 "role": "user",
@@ -665,23 +669,41 @@ class TestQueryProcessing(unittest.TestCase):
             }
         ]
 
+        mock_chain = MagicMock()
+        mock_chain.invoke.return_value = (
+            "What is the UPI refund policy for failed transactions?"
+        )
+        mock_get_chain.return_value = mock_chain
+
         result = rewrite_query(
             "What about failed transactions?",
             history
         )
 
-        self.assertIn(
-            "Previous question: What is the UPI refund policy?",
-            result
-        )
-        self.assertIn(
-            "Follow up question: What about failed transactions?",
-            result
+        self.assertEqual(
+            result,
+            "What is the UPI refund policy for failed transactions?"
         )
 
-    def test_non_follow_up_query_remains_unchanged(self):
-        """A standalone question should not be rewritten."""
+        mock_chain.invoke.assert_called_once_with({
+            "conversation_history": (
+                "User: What is the UPI refund policy?\n"
+                "Assistant: Refunds usually follow the payment policy."
+            ),
+            "question": "What about failed transactions?"
+        })
+
+    @patch("backend.app.rag.query.rewriting.get_query_rewriter_chain")
+    def test_non_follow_up_query_remains_unchanged(
+        self, mock_get_chain
+    ):
+        """A standalone question should retain its meaning."""
+
         query = "How do I reset my password?"
+
+        mock_chain = MagicMock()
+        mock_chain.invoke.return_value = query
+        mock_get_chain.return_value = mock_chain
 
         result = rewrite_query(
             query,
@@ -696,12 +718,12 @@ class TestQueryProcessing(unittest.TestCase):
         self.assertEqual(result, query)
 
     def test_follow_up_without_history_remains_unchanged(self):
-        """Without history, the function cannot resolve the previous topic."""
+        """Without history, no rewriting is necessary."""
+
         query = "What about failed transactions?"
 
         self.assertEqual(rewrite_query(query), query)
         self.assertEqual(rewrite_query(query, []), query)
-
 
 class TestIntegratedRetrieval(unittest.TestCase):
 
@@ -809,8 +831,7 @@ class TestIntegratedRetrieval(unittest.TestCase):
         mock_process_query.return_value = {
             "original_query": "What about failed transactions?",
             "rewritten_query": (
-                "Previous question: UPI refund policy\n"
-                "Follow up question: What about failed transactions?"
+                "What is the UPI refund policy for failed transactions?"
             ),
             "category": "troubleshooting",
         }
@@ -1003,6 +1024,7 @@ class TestRAGPipeline(unittest.TestCase):
             question=self.retriever.search_with_query_processing
             .return_value["processed_query"],
             documents=[self.document],
+            conversation_history = None
         )
 
         self.assertEqual(
@@ -1035,12 +1057,31 @@ class TestRAGPipeline(unittest.TestCase):
         self.generator.generate.assert_called_once_with(
             question="Unknown issue",
             documents=[],
+            conversation_history = None
         )
 
         self.assertEqual(result["retrieved_document_count"], 0)
         self.assertEqual(result["sources"], [])
         self.assertEqual(result["citations"], [])
         self.assertFalse(result["has_invalid_citations"])
+    
+    def test_run_passes_conversation_history_to_generator(self):
+        history = [
+            {"role": "user", "content": "What is the UPI refund policy?"},
+            {"role": "assistant", "content": "Refunds take 5-7 days."}
+        ]
+
+        self.pipeline.run(
+            question="What about failed transactions?",
+            conversation_history=history
+        )
+
+        self.generator.generate.assert_called_once_with(
+            question=self.retriever.search_with_query_processing
+            .return_value["processed_query"],
+            documents=[self.document],
+            conversation_history=history,
+    )
 
 class TestGroundingResponseParser(unittest.TestCase):
 

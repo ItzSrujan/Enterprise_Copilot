@@ -6,13 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.auth.dependencies import get_current_user
 from backend.app.models.user import User
+from backend.app.memory.manager import ConversationMemoryManager
 from backend.app.rag.pipeline import RAGPipeline
 from backend.app.schemas.chat import ChatRequest, ChatResponse
 from backend.app.db.session import get_db
 from backend.app.services.conversation_service import (
     create_conversation,
     get_user_conversation,
-    get_conversation_history,
     save_message_pair,
 )
 from sqlalchemy.orm import Session
@@ -25,6 +25,10 @@ def get_rag_pipeline() -> RAGPipeline:
     """Reuse one RAG pipeline instance within this process."""
     return RAGPipeline()
 
+@lru_cache(maxsize=1)
+def get_memory_manager() -> ConversationMemoryManager:
+    """Reuse one conversation memory manager."""
+    return ConversationMemoryManager(history_limit = 10)
 
 @router.post("", response_model=ChatResponse)
 def chat(
@@ -42,7 +46,7 @@ def chat(
                 title = request.question[:255]
             )
             conversation_id = conversation.id
-            history = request.conversation_history or []
+            history = []
         else:
             conversation = get_user_conversation(
                 db = db,
@@ -56,13 +60,18 @@ def chat(
                     detail = "Conversation not found" 
                 )
             
-            history = get_conversation_history(
+            memory_manager = get_memory_manager()
+            
+            history = memory_manager.load_history(
                 db = db,
                 conversation_id = conversation_id,
                 user_id = current_user.id
             )
             
         pipeline = get_rag_pipeline()
+        print("DEBUG: Loaded conversation history:")
+        for message in history:
+            print(message)
         result = pipeline.run(
             question = request.question,
             conversation_history = history,
