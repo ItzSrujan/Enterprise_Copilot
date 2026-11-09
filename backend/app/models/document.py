@@ -82,4 +82,11 @@ class Document(Base):
         nullable=False,
     )
 
+    content_hash: Mapped[str] = mapped_column(
+        String(64),
+        nullable = False,
+        unique = True,
+        index = True
+    )
+    
     uploader = relationship("User")

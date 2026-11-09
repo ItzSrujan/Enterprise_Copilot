@@ -1,6 +1,6 @@
 from pathlib import Path
 from uuid import uuid4
-import shutil
+import shutil, hashlib
 
 from fastapi import (
     APIRouter,
@@ -13,6 +13,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
+from sqlalchemy.exc import IntegrityError
 from backend.app.auth.dependencies import get_current_user
 from backend.app.auth.permissions import require_roles
 from backend.app.auth.roles import UserRole
@@ -27,6 +28,8 @@ from backend.app.services.document_service import (
     delete_document,
     get_admin_document_stats,
 )
+from sqlalchemy.exc import IntegrityError
+from backend.app.models.document import Document
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -39,6 +42,18 @@ DOCUMENT_TYPES = {
 
 UPLOAD_DIR = Path("data/documents")
 
+def calculate_upload_hash(file: UploadFile) -> str:
+    # Calculate SHA-256 hash of an uploaded file.
+    sha256 = hashlib.sha256()
+    
+    file.file.seek(0)
+    
+    for chunk in iter(lambda: file.file.read(8192), b""):
+        sha256.update(chunk)
+        
+    file.file.seek(0)
+    
+    return sha256.hexdigest()
 
 @router.post(
     "/upload",
@@ -65,8 +80,22 @@ def upload_document(
         )
 
     original_name = Path(file.filename).name
-    safe_name = f"{uuid4().hex}_{original_name}"
 
+    content_hash = calculate_upload_hash(file)
+    
+    existing_document = (
+        db.query(Document)
+        .filter(Document.content_hash == content_hash)
+        .first()
+    )
+    
+    if existing_document:
+        raise HTTPException(
+            status_code = status.HTTP_409_CONFLICT,
+            detail = "This document has already been uploaded"
+        )
+
+    safe_name = f"{uuid4().hex}_{original_name}"
     destination_dir = UPLOAD_DIR / document_type
     destination_dir.mkdir(parents=True, exist_ok=True)
 
@@ -82,6 +111,7 @@ def upload_document(
             file_path=str(file_path),
             document_type=document_type,
             uploaded_by=current_user.id,
+            content_hash = content_hash
         )
 
         try:
@@ -91,14 +121,39 @@ def upload_document(
             document = get_document(db, document.id)
 
         return document
+    
+    except IntegrityError as exc:
+        db.rollback()
+        
+        if file_path.exists():
+            file_path.unlink()
+        
+        existing_document = (
+            db.query(Document)
+            .filter(Document.content_hash == content_hash)
+            .first()
+        )
+        
+        if existing_document:
+            raise HTTPException(
+                status_code = status.HTTP_409_CONFLICT,
+                detail = "This document has already been uploaded"
+            ) from exc
+        
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = "Document upload failed"
+        ) from exc
 
     except Exception as exc:
+        db.rollback()
+        
         if file_path.exists():
             file_path.unlink()
 
         raise HTTPException(
-            status_code=500,
-            detail="Document upload failed.",
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = "Document upload failed.",
         ) from exc
 
     finally:

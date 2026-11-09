@@ -18,6 +18,7 @@ def create_document(
     file_path: str,
     document_type: str,
     uploaded_by: int,
+    content_hash: str
 ) -> Document:
 
     document = Document(
@@ -25,6 +26,7 @@ def create_document(
         file_path=file_path,
         document_type=document_type,
         uploaded_by=uploaded_by,
+        content_hash = content_hash,
         status="pending",
     )
 
