@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from backend.app.api.router import api_router
 from fastapi.middleware.cors import CORSMiddleware
+from backend.app.observability.langsmith import initialize_langsmith
+
+langsmith_enabled = initialize_langsmith()
 
 app = FastAPI(
     title = "Enterprise Knowledge & Support Copilot",
@@ -23,5 +26,6 @@ app.include_router(api_router, prefix = "/api/v1")
 def root():
     return {
         "message": "Enterprise Knowledge & Support Copilot API",
-        "status": "running"
+        "status": "running",
+        "langsmith_enabled": langsmith_enabled
     }

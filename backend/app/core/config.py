@@ -22,7 +22,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     admin_invitation_code: SecretStr | None = None
-    
+    langsmith_tracing: bool = False
+    langsmith_api_key: SecretStr | None = None
+    langsmith_project: str = "enterprise-knowledge-support-copilot"
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
+    openrouter_input_price_per_million: float | None = None
+    openrouter_output_price_per_million: float | None = None
     model_config = SettingsConfigDict(
         env_file = ".env",
         env_file_encoding = "utf-8",

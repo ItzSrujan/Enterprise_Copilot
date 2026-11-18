@@ -5,6 +5,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 from backend.app.rag.generation.llm import OpenRouterLLM
+from backend.app.observability.cost_tracker import CostTrackingCallback
+callback = CostTrackingCallback()
 
 QUERY_REWRITE_PROMPT = ChatPromptTemplate.from_messages(
     [
@@ -79,6 +81,9 @@ def rewrite_query(
         {
             "conversation_history": formatted_history,
             "question": query
+        },
+        config = {
+            "callbacks": [callback]
         }
     )
     rewritten_query = response.strip()

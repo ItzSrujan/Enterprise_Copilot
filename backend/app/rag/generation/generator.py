@@ -5,6 +5,12 @@ from backend.app.rag.prompts import RAG_PROMPT
 from backend.app.rag.generation.llm import OpenRouterLLM
 from backend.app.rag.citations.validator import validate_citations
 from backend.app.rag.citations.grounding import validate_citation_grounding
+from backend.app.rag.guardrails.hallucination import (
+    enforce_hallucination_guardrail
+)
+from backend.app.observability.cost_tracker import CostTrackingCallback
+
+callback = CostTrackingCallback()
 
 class RAGGenerator:
     """Generate grounded answers from retrieved documents."""
@@ -76,54 +82,87 @@ class RAGGenerator:
         
         return "\n".join(history_parts)
 
+    
     def generate(
         self,
         question: str,
         documents,
-        conversation_history: Sequence[dict[str, str]] | None = None    
+        conversation_history: Sequence[dict[str, str]] | None = None
     ) -> dict:
+
         if not question.strip():
             raise ValueError("Question must not be empty")
-        
+
+        # Handle cases where retrieval returns no documents.
         if not documents:
-            return{
-                "answer": "I could not find sufficient supporting information in the available documents.",
+            fallback_answer = (
+                "I could not find sufficient supporting information "
+                "in the available documents."
+            )
+
+            guardrail_result = enforce_hallucination_guardrail(
+                answer=fallback_answer,
+                grounding_results=None,
+                citations_result=None
+            )
+
+            return {
+                "answer": guardrail_result["final_answer"],
+                "original_answer": fallback_answer,
                 "sources": [],
+                "citations": [],
+                "invalid_citations": [],
+                "has_invalid_citations": False,
+                "grounding_results": None,
+                "guardrail_results": guardrail_result
             }
+
+        # 1. Prepare retrieved context and source references.
         context, sources = self.prepare_context(documents)
-        
+
         formatted_history = self.format_conversation_history(
             conversation_history
         )
-        
+
+        # 2. Generate the answer.
         answer = self.chain.invoke(
             {
                 "context": context,
                 "question": question,
                 "conversation_history": formatted_history
+            },
+            config = {
+                "callbacks": [callback]
             }
         )
-        
-        citations_result = validate_citations(
-            answer = answer,
-            sources = sources
-        )
-        
-        grounding_result = validate_citation_grounding(
-            answer = answer,
-            documents = documents,
-            llm = self.llm
-        )
-        
-        print("Citations:", citations_result["citations"])
-        print("Invalid citations:", citations_result["invalid_citations"])
-        print("Has invalid citations:", citations_result["has_invalid_citations"])
 
-        return{
-            "answer": answer,
+        # 3. Validate citation references.
+        citations_result = validate_citations(
+            answer=answer,
+            sources=sources
+        )
+
+        # 4. Verify whether each cited claim is supported.
+        grounding_result = validate_citation_grounding(
+            answer=answer,
+            documents=documents,
+            llm=self.llm
+        )
+
+        # 5. Apply hallucination guardrail.
+        guardrail_result = enforce_hallucination_guardrail(
+            answer=answer,
+            grounding_results=grounding_result,
+            citations_result=citations_result
+        )
+
+        return {
+            "answer": guardrail_result["final_answer"],
+            "original_answer": answer,
             "sources": sources,
             "citations": citations_result["citations"],
             "invalid_citations": citations_result["invalid_citations"],
             "has_invalid_citations": citations_result["has_invalid_citations"],
-            "grounding_results": grounding_result
+            "grounding_results": grounding_result,
+            "guardrail_results": guardrail_result
         }

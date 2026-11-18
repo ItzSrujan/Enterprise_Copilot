@@ -3,6 +3,8 @@ from langchain_core.messages import (
     HumanMessage,
     SystemMessage
 )
+from backend.app.observability.cost_tracker import CostTrackingCallback
+callback = CostTrackingCallback()
 
 def parse_grounding_response(raw: str) -> dict:
     """Extract and parse a JSON object from the verifier response."""
@@ -145,7 +147,10 @@ def validate_citation_grounding(
                         )
                     ),
                     HumanMessage(content = prompt)
-                ]
+                ],
+                config = {
+                    "callbacks": [callback]
+                }
             )
             
             raw = response.content
@@ -217,31 +222,99 @@ def validate_citation_grounding(
     
 
 
+
 def split_cited_claims(answer: str) -> list[str]:
-    """Split an answer into sentences while preserving attached citations."""
+    """
+    Split an answer into factual claims while preserving citation
+    associations.
+
+    Rules:
+    - Ignore Markdown headings.
+    - Treat each bullet as an independent unit.
+    - If citations appear at the end of a bullet, associate them
+      with each sentence in that bullet.
+    - Do not propagate citations between separate bullets.
+    - Split semicolon-separated claims where practical.
+    """
+
     if not isinstance(answer, str) or not answer.strip():
         return []
 
     claims = []
 
-    for line in answer.splitlines():
-        line = line.strip()
+    for raw_line in answer.splitlines():
+        line = raw_line.strip()
+
         if not line:
             continue
 
-        # Remove Markdown bullet markers, but preserve citation markers.
-        line = re.sub(r"^\s*(?:[-*+]|\d+[.)])\s+", "", line)
+        # Ignore Markdown headings.
+        if re.match(r"^#{1,6}\s+", line):
+            continue
 
-        # Do not split before a citation that follows sentence punctuation.
-        sentences = re.split(
-            r"(?<=[.!?])\s+(?!\[S\d+\])",
+        # Ignore standalone bold Markdown headings.
+        if re.fullmatch(r"\*\*[^*]+\*\*", line):
+            continue
+        # Remove blockquote markers.
+        line = re.sub(r"^>\s*", "", line)
+
+        # Detect and remove bullet or numbered-list markers.
+        is_bullet = bool(
+            re.match(r"^(?:[-*+]|\d+[.)])\s+", line)
+        )
+
+        line = re.sub(
+            r"^(?:[-*+]|\d+[.)])\s+",
+            "",
+            line,
+        ).strip()
+
+        if not line:
+            continue
+
+        # Find citations at the end of the current line.
+        trailing_citations = re.search(
+            r"((?:\s*\[S\d+\])+)\s*$",
             line,
         )
 
-        claims.extend(
-            sentence.strip()
-            for sentence in sentences
-            if sentence.strip()
+        citation_suffix = (
+            trailing_citations.group(1)
+            if trailing_citations
+            else ""
         )
+
+        # Temporarily remove trailing citations before splitting.
+        if trailing_citations:
+            line = line[:trailing_citations.start()].strip()
+
+        # Split into sentences.
+        sentences = re.split(
+            r"(?<=[.!?])\s+",
+            line,
+        )
+
+        # Split semicolon-separated statements where practical.
+        expanded_sentences = []
+
+        for sentence in sentences:
+            parts = re.split(
+                r";\s+",
+                sentence,
+            )
+            expanded_sentences.extend(parts)
+
+        for sentence in expanded_sentences:
+            sentence = sentence.strip()
+
+            if not sentence:
+                continue
+
+            # Attach end-of-line citations to each claim within
+            # the same bullet, never to previous bullets.
+            if citation_suffix:
+                sentence = f"{sentence}{citation_suffix}"
+
+            claims.append(sentence)
 
     return claims
